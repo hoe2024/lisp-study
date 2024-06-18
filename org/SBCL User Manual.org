@@ -11,6 +11,130 @@
 ** 7 超出ANSI标准
 ** 8 外部格式
 ** 9 外部函数接口
+本章描述了SBCL与C程序的接口库sb-alien
+*** 9.1 介绍 - 外部函数接口
+ Lisp系统可以自动在Lisp和外部表示之间进行对象的转换。
+ 这很方便，但当需要共享大型或复杂的数据结构时，翻译变得极其缓慢。
+ 这种方法得到了SBCL FFI的支持，并且在传递整数和字符串时会自动使用。
+*** 9.2 外部类型
+ alien类型有一种基于嵌套列表的描述语言结构。
+ 如 C type
+ #+begin_src c
+   struct foo {
+     int a;
+     struct foo *b[100];
+   };  
+ #+end_src
+ 拥有相应的 SBCL FFI 类型
+ #+begin_src lisp
+   (struct foo
+	   (a int)
+	   (b (array (* (struct foo)) 100)))
+ #+end_src
+**** 9.2.1 定义外部类型
+ - 通过 define-alien-type 定义外部类型
+ #+begin_src lisp
+   (define-alien-type *myst*
+       (struct foo
+	       (a int)))
+ #+end_src
+
+ - 在 with-alien 宏中，外部类型也可以匿名定义
+ #+begin_src lisp
+   (with-alien
+       ((ft1 (struct foo (a int)))
+	(ft2 *myst*))
+     (print ft1)
+     (print ft2))
+ #+end_src
+**** 9.2.2 外部类型与lisp类型
+**** 9.2.3 外部类型说明符
+ #+begin_src lisp
+   ;; 1.指针
+   (* foo) ;;指向类型foo的指针
+   (sb-alien:null-alien 'foo)  ;;类型为foo的空指针
+
+   ;; 2.数组
+   (array foo &rest dimensions)
+   ;; 深坑
+
+   ;; 3.结构 Struct
+   (sb-alien:struct name &rest fields)
+
+   ;; 4.联合体 Union
+   (sb-alien:union name &rest fields)
+
+   ;; 5.枚举 Enum
+   (sb-alien:enum name &rest specs)
+
+   ;; 6.带符号整数
+   (sb-alien:signed &optional bits)
+
+   ;; 7.无符号整数
+   (sb-alien:unsigned &optional bits)
+
+   ;; 8.布尔值
+   (boolean &optional bits)
+
+   ;; 9.单精度/双精度浮点数
+   ;; single-float/double-float
+
+   ;; 10.函数
+   (function result-type &rest arg-types)
+
+   ;; 11.system-area-pointer 指针
+   ;; sb-alien:system-area-pointer
+
+   ;; 12.空值
+   ;; sb-alien:void
+
+   ;; 13.字符串
+   ;; sb-alien:c-string
+ #+end_src
+
+*** 9.3 对外部对象的操作
+**** 9.3.3 创建
+ #+begin_src lisp
+   (cl:in-package "CL-USER") ; which USEs package "SB-ALIEN"
+
+   (define-alien-type nil (struct foo
+				  (str c-string)
+				  (lit (array int 5))))
+
+   (defun make-foo ()
+     (make-alien (struct foo)))
+
+   (defvar a (make-foo))
+
+   (setf (slot a 'str) "hw")
+
+   (setf (deref (slot a 'lit) 0) 12)
+ #+end_src
+**** 9.3.1 访问
+ - slot :: 访问属性
+   (slot c-vector i)
+ - deref :: 访问数组
+   (deref c-object 'symbol)
+*** 9.4 外部变量
+ 9.4.2 局部外部变量
+ - with-alien :: 局部外部变量
+   (with-alien ((name type) ...) body)
+ 9.4.3 外部变量
+ - define-alien-variable :: 外部变量
+   (define-alien-variable "foo" int)
+*** 9.5 外部数据结构示例
+*** 9.6 加载共享对象文件
+ - load-shared-object :: 加载外部dll文件
+   (load-shared-object pathname)
+ - unload-shared-boject :: 卸载外部dll文件
+   (load-shared-object pathname)
+*** 9.7 外部函数调用
+ - define-alien-routine :: 生成简单外部函数的lisp接口
+   (define-alien-routine name result-type &rest arg-specifiers)
+   + name :: 通常是一个字符串外部符号，也可以是外部名称和lisp名称的列表
+   + result-type :: 范围值的外部类型
+   + arg-specifiers :: 参数列表
+
 ** 10 路径名
 ** 11 数据流
 ** 12 包的锁
